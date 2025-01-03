@@ -11,6 +11,12 @@ device using Wi-Fi or Bluetooth. Currently, the project integrates
 with [RaceChrono DIY](https://racechrono.com/article/2572) via Bluetooth LE protocols and supports **CAN Bus**.
 Check out a Roadmap for details.
 
+A prototype example rev-v1.
+
+![prototype-v1.jpg](img/prototype-v1.jpg)
+
+This prototype, built on the Arduino UNO R4 Wi-Fi, includes an OBD2 connector and utilizes a 12V-to-5V converter.
+
 ### Sniffed CAN bus PIDs
 
 I used [Mazda MX5 NC Can DB](https://github.com/timurrrr/RaceChronoDiyBleDevice/blob/master/can_db/mazda_mx5_nc.md) and

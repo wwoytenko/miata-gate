@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include "lib/sensors.h"
 #include <WiFiS3.h>
 #include "lib/board.h"
+#include "config.h"
 
 #define BOARD_DEBUG_MODE
 #ifdef BOARD_DEBUG_MODE
@@ -16,28 +16,31 @@ const int OIL_PRESSURE_PIN = A3;
 const int OIL_THERMISTOR_PIN = A0;
 const float OIL_THERMISTOR_R = 5060.0;
 
+
+
 Board board(
-		OIL_PRESSURE_PIN,
-		OIL_THERMISTOR_PIN,
-		OIL_THERMISTOR_R
+    OIL_PRESSURE_PIN,
+    OIL_THERMISTOR_PIN,
+    OIL_THERMISTOR_R,
+    em
 );
 
 void setup() {
-	Serial.begin(SERIAL_BAUD);
-	while (!Serial) {
-		// TODO: Blink LED in this case
-	}
+    Serial.begin(SERIAL_BAUD);
+    while (!Serial) {
+        // TODO: Blink LED in this case
+    }
 
-	uint16_t errors = board.init();
-	if (errors == 0) {
-		LOG_INFO("system status: initialized successfully");
-	} else {
-		LOG_WARN("system status: initialized with errors");
-	}
+    uint16_t errors = board.init();
+    if (errors == 0) {
+        LOG_INFO("system status: initialized successfully");
+    } else {
+        LOG_WARN("system status: initialized with errors");
+    }
 }
 
 
 void loop() {
-	board.handle();
-	delayMicroseconds(50);
+    board.handle();
+    delayMicroseconds(50);
 }

@@ -7,8 +7,7 @@
 
 #include <Arduino.h>
 #include <ArduinoBLE.h>
-#include <Arduino_CAN.h>
-#include "can_buffer.h"
+#include "ob2_req_map.h"
 
 #ifdef BOARD_DEBUG_MODE
 #define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
@@ -51,74 +50,67 @@
 #define BOARD_ERROR_PRINT_INTERVAL 1000
 
 class Board {
-private:
-	BLEService bleService;
-	BLECharacteristic canBusMainChar;
-	BLEUnsignedLongCharacteristic canBusFilterChar;
+    BLEService bleService;
+    BLECharacteristic canBusMainChar;
+    BLEUnsignedLongCharacteristic canBusFilterChar;
 
-	uint16_t errors{};
-	bool bleStateConnected{};
-	String bleDeviceCurrent{};
-	uint8_t raceChronoCanBuf[20]{};
-	uint8_t oilPresCanData[8]{};
-	uint8_t oilTempCanData[8]{};
-	uint8_t obdFunctionalRequestMax;
-	uint8_t obdFunctionalRequestCurr{};
-	uint8_t obdRequestByIdentifierMax;
-	uint8_t obdRequestByIdentifierCurr{};
+    uint16_t errors{};
+    bool bleStateConnected{};
+    String bleDeviceCurrent{};
+    uint8_t raceChronoCanBuf[20]{};
+    uint8_t oilPresCanData[8]{};
+    uint8_t oilTempCanData[8]{};
 
-	uint16_t mx5VendorRpmSpeedThrottleCounter{};
-	uint16_t mx5VendorBrakeSwitchCounter{};
-	uint16_t mx5VendorGearBoxCounter{};
-	uint16_t mx5VendorEngineRelatedCounter{};
-	uint16_t mx5VendorCoolantCounter{};
-	uint16_t mx5VendorWheelsSpeedCounter{};
-	uint8_t canBusReqBuf[8]{};
+    uint16_t mx5VendorRpmSpeedThrottleCounter{};
+    uint16_t mx5VendorBrakeSwitchCounter{};
+    uint16_t mx5VendorGearBoxCounter{};
+    uint16_t mx5VendorEngineRelatedCounter{};
+    uint16_t mx5VendorCoolantCounter{};
+    uint16_t mx5VendorWheelsSpeedCounter{};
+    uint8_t canBusReqBuf[8]{};
+    EntryMap &entryMap;
 
-	uint8_t oilPresPin;
-	uint8_t oilTempPin;
-	float oilTempR;
-	int sensorOilTemp{};
-	float sensorOilPres{};
+    uint8_t oilPresPin;
+    uint8_t oilTempPin;
+    float oilTempR;
+    int sensorOilTemp{};
+    float sensorOilPres{};
 
-	unsigned long sinceBLEHandle{};
-	unsigned long sinceObd2FunctionalReq{};
-	unsigned long sinceObd2ReqByIdent{};
-	unsigned long sinceRequestSensors{};
-	unsigned long sinceErrorPrinted{};
+    unsigned long sinceBLEHandle{};
+    // unsigned long sinceObd2FunctionalReq{};
+    // unsigned long sinceObd2ReqByIdent{};
+    unsigned long sinceRequestSensors{};
+    unsigned long sinceErrorPrinted{};
 
 
-	void initCanBus();
+    void initCanBus();
 
-	void checkSensors();
+    void checkSensors();
 
-	void initBLE();
+    void initBLE();
 
-	void tryInit();
+    void tryInit();
 
-	void requestSensorsAndSendToRaceChrono();
+    void requestSensorsAndSendToRaceChrono();
 
-	void printBleConnected();
+    void printBleConnected();
 
-	void handleBLE();
+    void handleBLE();
 
-	void raceChronoSendCanData(uint32_t pid, const uint8_t data[8], uint8_t length);
+    void raceChronoSendCanData(uint32_t pid, const uint8_t data[8], uint8_t length);
 
-	void obd2FunctionalRequest();
+    void scanCanBusAndSendToRaceChrono();
 
-	void scanCanBusAndSendToRaceChrono();
+    void printError();
 
+    void obd2Request();
 
 public:
-	Board(uint8_t oilPresPin, uint8_t oilTempPin, float oilTempR);
+    Board(uint8_t oilPresPin, uint8_t oilTempPin, float oilTempR, EntryMap &entryMap);
 
-	uint16_t init();
+    uint16_t init();
 
-	void handle();
-
-	void printError();
-
-	void obd2RequestByIdentifier();
+    void handle();
 };
 
 

@@ -11,35 +11,21 @@
 #include "mx5.h"
 #include "obd2.h"
 
-#ifdef BOARD_DEBUG_MODE
-#define DEBUGLOG_DEFAULT_LOG_LEVEL_TRACE
-#endif
 
-#include <DebugLog.h>
-
-#define BOARD_OBD2_REQUEST_LENGTH 0x02
-#define BOARD_OBD2_FUNCTIONAL_REQUEST_DATA_PID 0x7DF
-#define BOARD_OBD2_REQUEST_MODE 0x01
-#define BOARD_OBD2_RESPONSE_MARKER 0x40
-#define BOARD_OBD2_EXPECTED_RESPONSE_BYTE (BOARD_OBD2_RESPONSE_MARKER | 0x01)
-//#define BOARD_OBD2_FUNCTIONAL_REQUEST_PID_MIN 0x7E8
-//#define BOARD_OBD2_FUNCTIONAL_REQUEST_PID_MAX 0x7EF
-
-#define BOARD_RACE_CHRONO_BT_MAIN_CHARACTERISTIC_UUID "00000001-0000-1000-8000-00805f9b34fb"
-#define BOARD_RACE_CHRONO_BT_MAIN_CHARACTERISTIC_PAYLOAD_SIZE 20
-#define BOARD_RACE_CHRONO_BT_CAN_BUS_FILTER_CHARACTERISTIC_UUID "00000002-0000-1000-8000-00805f9b34fb"
-
-
-uint8_t obd2Pids[]{
-		AIR_INTAKE_TEMPERATURE,  // intakeAirTemperature
-		CONTROL_MODULE_VOLTAGE, // voltage
-		CATALYST_TEMPERATURE_BANK_1_SENSOR_1, // EGT
-		MAF_AIR_FLOW_RATE, // MAF
+uint8_t obd2FunctionalRequests[]{
+//		AIR_INTAKE_TEMPERATURE,  // intakeAirTemperature
+//		CONTROL_MODULE_VOLTAGE, // voltage
+//		CATALYST_TEMPERATURE_BANK_1_SENSOR_1, // EGT
+//		MAF_AIR_FLOW_RATE, // MAF
 //		FUEL_AIR_COMMANDED_EQUIVALENCE_RATE,  // AFR
 //		ENGINE_COOLANT_TEMPERATURE,
 //		ENGINE_RPM,
 //		VEHICLE_SPEED,
 //		THROTTLE_POSITION
+};
+
+uint32_t obd2ReadByIdentRequests[]{
+		MAZDA_MX5_BRAKE_SWITCH
 };
 
 /*
@@ -77,8 +63,8 @@ Board::Board(uint8_t oilPresPin, uint8_t oilTempPin, float oilTempR) : bleServic
 	// TODO: Though we set a BT handler the settings provided does not impact somehow on the Board logic
 	//		 Consider should we implement this logic?
 	btSetCanFilterEventHandler(canBusFilterChar);
-	obdRequestMax = sizeof(obd2Pids) / sizeof(obd2Pids[0]);
-
+	obdFunctionalRequestMax = sizeof(obd2FunctionalRequests) / sizeof(obd2FunctionalRequests[0]);
+	obdRequestByIdentifierMax = sizeof(obd2ReadByIdentRequests) / sizeof(obd2ReadByIdentRequests[0]);
 }
 
 
@@ -90,9 +76,11 @@ uint16_t Board::init() {
 }
 
 void Board::handle() {
+	obd2RequestByIdentifier();
+	printError();
 	tryInit();
 	handleBLE();
-	requestStandardOBDData();
+	obd2FunctionalRequest();
 	scanCanBusAndSendToRaceChrono();
 	requestSensorsAndSendToRaceChrono();
 }
@@ -161,8 +149,6 @@ void Board::requestSensorsAndSendToRaceChrono() {
 
 	if (sensorOilTemp == BOSCH_0261230482_ERROR) {
 		setError(errors, BOARD_ERROR_SENSOR_READ);
-		LOG_ERROR("oil temperature read error: sensor disconnected");
-		LOG_ERROR("oil pressure read error: sensor disconnected");
 		sinceRequestSensors = millis();
 		return;
 	}
@@ -233,32 +219,66 @@ void Board::raceChronoSendCanData(uint32_t pid, const uint8_t *data, uint8_t len
 	}
 }
 
-
-void Board::requestStandardOBDData() {
+void Board::obd2RequestByIdentifier() {
 	if (hasError(errors, BOARD_ERROR_CAN_INIT)) {
-		LOG_DEBUG("can scanner: skip can scanning: can is not inited");
+		LOG_DEBUG("obd request by ident: skip can scanning: can is not inited");
+		return;
+	}
+	if (obdRequestByIdentifierMax == 0) {
 		return;
 	}
 
-	if (millis() - sinceObdReq < BOARD_REQUEST_ODB_INTERVAL) {
+	if (millis() - sinceObd2ReqByIdent < BOARD_REQUEST_BY_IDENT_ODB_INTERVAL) {
 		return;
 	}
-	LOG_DEBUG("obd request: request pid =", obd2Pids[obdRequestCurr], "idx =", obdRequestCurr);
+	LOG_DEBUG("obd request by ident: request pid =", obd2ReadByIdentRequests[obdRequestByIdentifierCurr], "idx =",
+			  obdRequestByIdentifierCurr);
 	// Filter set to filter only ODB2 response
-	uint8_t const msg_data[] = {
-			BOARD_OBD2_REQUEST_LENGTH,
-			BOARD_OBD2_REQUEST_MODE,
-			obd2Pids[obdRequestCurr],
-			0, 0, 0, 0, 0
-	};
+	canBusReqBuf[0] = BOARD_OBD2_REQUEST_BY_IDENT_LENGTH;
+	canBusReqBuf[1] = BOARD_OBD2_REQUEST_MODE_READ_DATA_BY_IDENTIFIER;
+	canBusReqBuf[2] = uint8_t(obd2ReadByIdentRequests[obdRequestByIdentifierCurr] & 0xFF);
+	canBusReqBuf[3] = uint8_t((obd2ReadByIdentRequests[obdRequestByIdentifierCurr] >> 8) & 0xFF);
+	canBusReqBuf[4] = uint8_t((obd2ReadByIdentRequests[obdRequestByIdentifierCurr] >> 16) & 0xFF);
+	canBusReqBuf[5] = uint8_t((obd2ReadByIdentRequests[obdRequestByIdentifierCurr] >> 24) & 0xFF);
+
 	// Perform functional OBD2 request
-	CanMsg const request(CanStandardId(BOARD_OBD2_FUNCTIONAL_REQUEST_DATA_PID), sizeof(msg_data), msg_data);
+	CanMsg const request(CanStandardId(BOARD_OBD2_ECU_REQUEST_CAN_ID), sizeof(canBusReqBuf), canBusReqBuf);
 	const int rc = CAN.write(request);
 	if (rc < 0) {
-		LOG_ERROR("odb data request: error writing: pid =", obd2Pids[obdRequestCurr]);
+		LOG_ERROR("obd request by ident: error writing: pid =", obd2ReadByIdentRequests[obdRequestByIdentifierCurr]);
 	}
-	sinceObdReq = millis();
-	obdRequestCurr = (obdRequestCurr + 1) % obdRequestMax;
+	obdRequestByIdentifierCurr = (obdRequestByIdentifierCurr + 1) % obdRequestByIdentifierMax;
+	sinceObd2ReqByIdent = millis();
+}
+
+
+void Board::obd2FunctionalRequest() {
+	if (hasError(errors, BOARD_ERROR_CAN_INIT)) {
+		LOG_DEBUG("obd functional request: skip can scanning: can is not inited");
+		return;
+	}
+	if (obdFunctionalRequestMax == 0) {
+		return;
+	}
+
+	if (millis() - sinceObd2FunctionalReq < BOARD_FUNCTIONAL_REQUEST_ODB_INTERVAL) {
+		return;
+	}
+	LOG_DEBUG("obd functional request: request pid =", obd2FunctionalRequests[obdFunctionalRequestCurr], "idx =",
+			  obdFunctionalRequestCurr);
+	// Filter set to filter only ODB2 response
+	canBusReqBuf[0] = BOARD_OBD2_FUNCTIONAL_REQUEST_LENGTH;
+	canBusReqBuf[1] = BOARD_OBD2_REQUEST_MODE_SHOW_CURRENT_DATA;
+	canBusReqBuf[2] = obd2FunctionalRequests[obdFunctionalRequestCurr];
+
+	// Perform functional OBD2 request
+	CanMsg const request(CanStandardId(BOARD_OBD2_FUNCTIONAL_REQUEST_CAN_ID), sizeof(canBusReqBuf), canBusReqBuf);
+	const int rc = CAN.write(request);
+	if (rc < 0) {
+		LOG_ERROR("obd functional request: error writing: pid =", obd2FunctionalRequests[obdFunctionalRequestCurr]);
+	}
+	obdFunctionalRequestCurr = (obdFunctionalRequestCurr + 1) % obdFunctionalRequestMax;
+	sinceObd2FunctionalReq = millis();
 }
 
 void Board::scanCanBusAndSendToRaceChrono() {
@@ -314,8 +334,10 @@ void Board::scanCanBusAndSendToRaceChrono() {
 				mx5VendorGearBoxCounter = 0;
 			}
 			break;
+		case BOARD_OBD2_ECU_RESPONSE_CAN_ID:
+			DEBUG_PID("can scanner", "received obd response 0x7E8", msg);
 		default:
-			if (msg.data[1] != BOARD_OBD2_EXPECTED_RESPONSE_BYTE) {
+			if (msg.data[1] != (BOARD_OBD2_RESPONSE_MARKER | BOARD_OBD2_REQUEST_MODE_SHOW_CURRENT_DATA)) {
 				break;
 			}
 			if (msg.data_length < 3) {
@@ -326,4 +348,15 @@ void Board::scanCanBusAndSendToRaceChrono() {
 			raceChronoSendCanData(msg.data[2], &msg.data[3], msg.data_length - 2);
 			break;
 	}
+}
+
+void Board::printError() {
+	if (sinceErrorPrinted - millis() < BOARD_ERROR_PRINT_INTERVAL) {
+		return;
+	}
+	if (hasError(errors, BOSCH_0261230482_ERROR)) {
+		LOG_ERROR("oil temperature read error: sensor disconnected");
+		LOG_ERROR("oil pressure read error: sensor disconnected");
+	}
+	sinceErrorPrinted = millis();
 }

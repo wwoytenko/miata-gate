@@ -110,5 +110,9 @@ enum {
 	// more PIDs can be added from: https://en.wikipedia.org/wiki/OBD-II_PIDs
 };
 
+enum {
+	MAZDA_MX5_BRAKE_SWITCH = 0x1101
+};
+
 
 #endif //MIATA_GATE_OBD2_H

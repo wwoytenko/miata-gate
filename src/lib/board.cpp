@@ -211,6 +211,7 @@ void Board::obd2Request() {
     if (!entry) {
         return;
     }
+    LOG_DEBUG("obd request: request pid =", entry->pid, "id =", entry->id, "mode =", entry->mode);
     canBusReqBuf[0] = BOARD_OBD2_REQUEST_BY_IDENT_LENGTH;
     canBusReqBuf[1] = entry->mode;
     canBusReqBuf[2] = uint8_t(entry->pid & 0xFF);
@@ -220,7 +221,7 @@ void Board::obd2Request() {
     CanMsg const request(entry->id, sizeof(canBusReqBuf), canBusReqBuf);
     const int rc = CAN.write(request);
     if (rc < 0) {
-        LOG_ERROR("obd request by ident: error writing: pid =", entry->id);
+        LOG_ERROR("obd request: error writing: pid =", entry->id);
     }
 }
 

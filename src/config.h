@@ -38,7 +38,10 @@ inline BroadcastEntry broadcastEntries[]{
 		BroadcastEntry(MX5_VENDOR_WHEELS_SPEED, 5)
 };
 
-inline EntryMap em(1, obd2Reqs, 6, broadcastEntries);
+inline EntryMap em(
+		sizeof(obd2Reqs) / sizeof(OBD2Entry), obd2Reqs,
+		sizeof(broadcastEntries) / sizeof(BroadcastEntry), broadcastEntries
+);
 
 
 #endif //CONFIG_H

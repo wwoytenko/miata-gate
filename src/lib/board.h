@@ -77,8 +77,6 @@ class Board {
     float sensorOilPres{};
 
     unsigned long sinceBLEHandle{};
-    // unsigned long sinceObd2FunctionalReq{};
-    // unsigned long sinceObd2ReqByIdent{};
     unsigned long sinceRequestSensors{};
     unsigned long sinceErrorPrinted{};
 

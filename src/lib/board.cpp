@@ -226,7 +226,6 @@ void Board::obd2Request() {
 }
 
 void Board::scanCanBusAndSendToRaceChrono() {
-//	LOG_INFO("test");
 	if (!CAN.available()) {
 		LOG_DEBUG("can scanner: can is empty");
 		return;
@@ -252,10 +251,10 @@ void Board::scanCanBusAndSendToRaceChrono() {
 }
 
 void Board::printError() {
-	if (sinceErrorPrinted - millis() < BOARD_ERROR_PRINT_INTERVAL) {
+	if (millis() - sinceErrorPrinted < BOARD_ERROR_PRINT_INTERVAL) {
 		return;
 	}
-	if (hasError(errors, BOSCH_0261230482_ERROR)) {
+	if (hasError(errors, BOARD_ERROR_SENSOR_READ)) {
 		LOG_ERROR("oil temperature read error: sensor disconnected");
 		LOG_ERROR("oil pressure read error: sensor disconnected");
 	}

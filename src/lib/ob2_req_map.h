@@ -10,29 +10,30 @@
 
 class OBD2Entry {
 public:
-	OBD2Entry(uint16_t id, uint16_t pid, uint8_t mode, uint16_t interval);
+	OBD2Entry(uint32_t id, uint32_t pid, uint8_t mode, uint16_t interval, uint8_t len);
 
 	void increment();
 
 	bool isNeedToUpdate() const;
 
 	// id - is a unit ID in CAN network
-	uint16_t id = 0;
+	uint32_t id = 0;
 	// pid - is a parameter that we are requesting
-	uint16_t pid = 0;
+	uint32_t pid = 0;
 	// mode - is a mode that used for parameter requests (support 0x01 and 0x22)
 	uint8_t mode = 0;
+	uint8_t length = 0;
 
 private:
 	// updatedAt - when the entry was updated last time
-	uint16_t updatedAt = 0;
+	unsigned long updatedAt = 0;
 	// updatedAt - when the entry was updated last time
-	uint16_t interval = 0;
+	unsigned long interval = 0;
 };
 
 class BroadcastEntry {
 public:
-	BroadcastEntry(const uint16_t pid) : pid(pid) {
+	BroadcastEntry(const uint32_t pid, uint8_t n) : pid(pid), sendEachNMessage(n) {
 	};
 
 	void increment();
@@ -40,7 +41,7 @@ public:
 	bool isNeedToUpdate() const;
 
 	// pid - is a broadcast pack PID
-	uint16_t pid{};
+	uint32_t pid{};
 
 private:
 	// sendEachNMessage - divider that shows how frequently we have to send a message
@@ -55,7 +56,7 @@ class EntryMap {
 public:
 	EntryMap(uint8_t obd2Size, OBD2Entry obd2[], uint8_t broadcastSize, BroadcastEntry broadcast[]);
 
-	// getNextObd2Entry - returns next entry to request in OBD. Need to retrun nullptr or smth some flag that we don't
+// getNextObd2Entry - returns next entry to request in OBD. Need to retrun nullptr or smth some flag that we don't
 	// have ant. It returns pinter to the entry and increment a counter
 	const OBD2Entry *getNextObd2Entry();
 
@@ -68,6 +69,7 @@ private:
 	OBD2Entry *obd2Entries;
 	uint8_t broadcastEntrySize = 0;
 	BroadcastEntry *broadcastEntries;
+	uint8_t length;
 };
 
 

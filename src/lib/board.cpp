@@ -193,7 +193,7 @@ void Board::raceChronoSendCanData(uint32_t pid, const uint8_t *data, uint8_t len
 
 	memcpy(raceChronoCanBuf + 4, data, length); // Copy CAN data to buffer
 
-	int status = canBusMainChar.writeValue(raceChronoCanBuf, 4 + length, true);
+	int status = canBusMainChar.writeValue(raceChronoCanBuf, length + 4, true);
 	if (status <= 0) {
 		LOG_WARN("race chrono: error writing CAN data to BT: pid =", pid, " len =", length);
 		return;
@@ -210,13 +210,14 @@ void Board::obd2Request() {
 		LOG_DEBUG("obd request: no entry to request");
 		return;
 	}
-	canBusReqBuf[0] = 3;
+	canBusReqBuf[0] = entry->length;
 	canBusReqBuf[1] = entry->mode;
-	canBusReqBuf[2] = uint8_t(entry->pid & 0xFF);
-	canBusReqBuf[3] = uint8_t((entry->pid >> 8) & 0xFF);
+	canBusReqBuf[2] = uint8_t((entry->pid >> 8) & 0xFF);
+	canBusReqBuf[3] = uint8_t(entry->pid & 0xFF);
 
-	// Perform functional OBD2 request
+	LOG_DEBUG("obd request", "written bytes [0] =", canBusReqBuf[2], " [1] =", canBusReqBuf[3]);
 	CanMsg const request(entry->id, sizeof(canBusReqBuf), canBusReqBuf);
+	LOG_DEBUG("obd request: real pid =", entry->pid);
 	DEBUG_PID("obd request", "requesting", request);
 	const int rc = CAN.write(request);
 	if (rc < 0) {
@@ -225,6 +226,7 @@ void Board::obd2Request() {
 }
 
 void Board::scanCanBusAndSendToRaceChrono() {
+//	LOG_INFO("test");
 	if (!CAN.available()) {
 		LOG_DEBUG("can scanner: can is empty");
 		return;
@@ -240,12 +242,10 @@ void Board::scanCanBusAndSendToRaceChrono() {
 	} else if (msg.data[1] == (BOARD_OBD2_RESPONSE_MARKER | BOARD_OBD2_REQUEST_MODE_READ_DATA_BY_IDENTIFIER)) {
 		// For req by ident it is likely 2 bytes PID
 		DEBUG_PID("can scanner", "proceed with obd2 0x22 sent", msg);
-		uint16_t pid = (uint16_t(msg.data[3]) << 8) | uint16_t(msg.data[2]);
+		uint16_t pid = (uint16_t(msg.data[2]) << 8) | uint16_t(msg.data[3]);
 		raceChronoSendCanData(pid, &msg.data[4], msg.data_length - 3);
 	} else if (entryMap.isBroadcastMsgAllowed(msg.id)) {
 		raceChronoSendCanData(msg.id, msg.data, msg.data_length);
-	} else if (((uint16_t(msg.data[3]) << 8) | uint16_t(msg.data[2])) == 0x1101) {
-		DEBUG_PID("can scanner", "met 0x1101", msg);
 	} else {
 		DEBUG_PID("can scanner", "skipped pid", msg);
 	}

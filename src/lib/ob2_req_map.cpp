@@ -12,19 +12,19 @@
 
 /************* OBD2Entry *********************/
 
-OBD2Entry::OBD2Entry(const uint16_t id, const uint16_t pid, const uint8_t mode,
-					 const uint16_t interval) : id(id), pid(pid), mode(mode),
-												interval(interval) {
+OBD2Entry::OBD2Entry(const uint32_t id, const uint32_t pid, const uint8_t mode,
+					 const uint16_t interval, uint8_t len) : id(id), pid(pid), mode(mode),
+															 interval(interval), length(len) {
 }
 
 
 void OBD2Entry::increment() {
-	updatedAt = millis() & 0xFFFF;
+	updatedAt = millis();
 }
 
 
 bool OBD2Entry::isNeedToUpdate() const {
-	return static_cast<uint16_t>((millis() & 0xFFFF) - updatedAt) >= interval;
+	return (millis() - updatedAt) >= interval;
 }
 
 /************* OBD2Entry *********************/
@@ -52,6 +52,9 @@ EntryMap::EntryMap(uint8_t obd2Size, OBD2Entry obd2[], uint8_t broadcastSize,
 
 
 const OBD2Entry *EntryMap::getNextObd2Entry() {
+	if (obd2EntrySize == 0) {
+		return nullptr;
+	}
 	uint8_t realIdx;
 	for (uint8_t i = 0; i < obd2EntrySize; i++) {
 		realIdx = (lastObdEntry + i) % obd2EntrySize;
@@ -67,7 +70,11 @@ const OBD2Entry *EntryMap::getNextObd2Entry() {
 }
 
 bool EntryMap::isBroadcastMsgAllowed(const uint32_t pid) {
+	if (broadcastEntrySize == 0) {
+		return false;
+	}
 	for (uint8_t i = 0; i < broadcastEntrySize; i++) {
+		LOG_DEBUG("l pid = ", pid, "r pid =", broadcastEntries[i].pid);
 		if (broadcastEntries[i].pid == pid) {
 			broadcastEntries[i].increment();
 			return broadcastEntries[i].isNeedToUpdate();
